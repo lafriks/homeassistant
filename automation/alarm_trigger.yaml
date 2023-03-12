@@ -1,0 +1,73 @@
+# Trigger actions based on the type of sensors (smoke or moisture)
+
+blueprint:
+  name: "Alarm detection & notifier"
+  description: Send a notification when any configured moisture or smoke sensor is triggered
+  domain: automation
+  input:
+    type:
+      name: Type
+      description: Type of events to trigger alarm on 
+      selector:
+        select:
+          options:
+            - label: Smoke detectors
+              value: smoke
+            - label: Moisture detectors
+              value: moisture
+    delay:
+      name: Delay 
+      description: Time in seconds to delay actions.
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 300
+          unit_of_measurement: seconds
+    actions:
+      name: Actions
+      description: >-
+        Notifications or similar to be run. {{ trigger.event.data.new_state.attributes.friendly_name }} will be the sensor
+        name, {{ area_name(trigger.event.data.entity_id) }} to get area name triggered.
+      selector:
+        action: {}
+
+variables:
+  delay_seconds: !input 'delay'
+  sensor_type: !input 'type'
+  sensors: >-
+    {% set result = namespace(sensors=[]) %}
+    {% for s in states.binary_sensor | selectattr('attributes.device_class', '==', sensor_type) | selectattr('state', '==', 'on') %}
+      {% set result.sensors = result.sensors + [s.name] %}
+    {% endfor %}
+    {{result.sensors | join(', ')}}
+
+trigger:
+  - event_data: {}
+    event_type: state_changed
+    platform: event
+
+condition:
+  - condition: template
+    value_template: '{{ trigger.event.data.new_state.attributes.device_class == sensor_type }}'
+  - condition: template
+    value_template: '{{ trigger.event.data.new_state.state == "on" }}'
+
+action:
+  - if:
+      - condition: template
+        value_template: '{{ delay_seconds > 0 }}'
+    then:
+      - delay:
+          seconds: '{{ delay_seconds }}'
+      - if:
+          - condition: template
+            value_template: '{{ states(trigger.event.data.entity_id) == "on" }}'
+        then:
+          - choose: []
+            default: !input 'actions'
+    else:
+      - choose: []
+        default: !input 'actions'
+
+mode: single

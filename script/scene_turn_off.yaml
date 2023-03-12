@@ -1,0 +1,30 @@
+# Turn off all entities that are attached to this scene.
+
+blueprint:
+  name: "Scene Turn Off"
+  description:
+    If any of the scene entities is on, switch everything off.
+  domain: script
+
+mode: queued
+max_exceeded: silent
+icon: mdi:toggle-switch-variant-off
+
+fields:
+  target_scene:
+    name: Scene to turn off
+    description: The scene you want to turn off
+    required: true
+    selector:
+      entity:
+        domain: scene
+
+variables:
+  scene_entities: >-
+    {{ state_attr(target_scene.entity_id, 'entity_id') }}
+
+sequence:
+  - alias: Turn off the scene
+    service: homeassistant.turn_off
+    target:
+      entity_id: "{{ scene_entities }}"

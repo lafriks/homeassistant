@@ -1,0 +1,70 @@
+# Activate light scene by motion sensor
+
+blueprint:
+  name: "Motion-activated Light Scene"
+  description: Turn on a light scene using motion activation.
+  domain: automation
+  source_url: https://github.com/lafriks/homeassistant
+  input:
+    motion_entity:
+      name: Motion Sensor
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class: motion
+    target_scene:
+      name: Scene
+      selector:
+        target:
+          entity:
+            domain: scene
+    no_motion_wait:
+      name: Wait time
+      description: Time to leave the light on after last motion is detected.
+      default: 120
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: seconds
+    start_time:
+      name: Start Time
+      description: Time action should start
+      default: "17:00:00"
+      selector:
+        time:
+    end_time:
+      name: End Time
+      default: "00:00:00"
+      description: Time action should stop
+      selector:
+        time:
+
+# If motion is detected within the delay,
+# we restart the script.
+mode: restart
+max_exceeded: silent
+
+trigger:
+  platform: state
+  entity_id: !input motion_entity
+  from: "off"
+  to: "on"
+condition:
+  alias: "Time 17~00"
+  condition: time
+  # At least one of the following is required.
+  after: !input start_time
+  before: !input end_time
+action:
+  - service: scene.turn_on
+    target: !input target_scene
+  - wait_for_trigger:
+      platform: state
+      entity_id: !input motion_entity
+      from: "on"
+      to: "off"
+  - delay: !input no_motion_wait
+  - service: script.scene_turn_off
+    data:
+      target_scene: !input target_scene
